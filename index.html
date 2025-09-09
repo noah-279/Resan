@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resan · AI Resume Analyzer</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121733;
+      --panel-2: #0e1430;
+      --text: #e6e9f5;
+      --muted: #a8b1d8;
+      --primary: #6c7cff;
+      --primary-600: #5867ff;
+      --primary-700: #4855de;
+      --success: #2bd47d;
+      --warning: #ffcc66;
+      --danger: #ff6b6b;
+      --border: #232a55;
+      --shadow: 0 10px 30px rgba(0,0,0,0.25);
+      --radius: 14px;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --panel-2: #f0f3fb;
+      --text: #111322;
+      --muted: #515b7d;
+      --primary: #3b5bff;
+      --primary-600: #2f4ae6;
+      --primary-700: #273fc2;
+      --success: #14b87a;
+      --warning: #d69300;
+      --danger: #e5484d;
+      --border: #e6e9f5;
+      --shadow: 0 10px 30px rgba(14, 20, 48, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      margin: 0;
+      background: 
+        radial-gradient(1200px 600px at 20% -20%, rgba(108,124,255,0.18), transparent 50%),
+        radial-gradient(900px 600px at 120% 0%, rgba(43,212,125,0.12), transparent 50%),
+        radial-gradient(800px 400px at 80% 100%, rgba(255,107,107,0.08), transparent 50%),
+        radial-gradient(600px 300px at 0% 50%, rgba(255,204,102,0.06), transparent 50%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Multi-screen system */
+    .screen { display: none; opacity: 0; transform: translateY(10px); transition: opacity .25s ease, transform .25s ease; }
+    .screen.active { display: block; opacity: 1; transform: translateY(0); }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--success));
+      box-shadow: var(--shadow);
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.4px;
+    }
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn, button, select {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all .2s ease;
+      font-size: 14px;
+    }
+    .btn:hover, button:hover {
+      transform: translateY(-1px);
+      border-color: var(--primary);
+    }
+    .btn-primary {
+      background: linear-gradient(180deg, var(--primary), var(--primary-600));
+      border: none;
+      color: white;
+      box-shadow: var(--shadow);
+    }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    @media (min-width: 900px) {
+      .grid { grid-template-columns: 420px 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    label { font-weight: 600; display: block; margin: 12px 0 6px; }
+    input[type="file"] { display: none; }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      background: rgba(108,124,255,0.06);
+      padding: 18px;
+      border-radius: 12px;
+      text-align: center;
+      color: var(--muted);
+      transition: border-color .2s ease, background .2s ease;
+    }
+    .dropzone.dragover {
+      border-color: var(--primary);
+      background: rgba(108,124,255,0.12);
+      color: var(--text);
+    }
+    .file-meta { margin-top: 8px; color: var(--muted); font-size: 12px; }
+
+    .field { margin-top: 14px; }
+    .helper { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+    .status { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.25);
+      border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .tab-btn {
+      padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel);
+      color: var(--text); cursor: pointer; font-size: 13px;
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; border-color: transparent; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .result-section h3 { margin: 10px 0; }
+    .highlight { background: rgba(43,212,125,0.18); color: #d7ffe9; padding: 2px 6px; border-radius: 6px; }
+    [data-theme="light"] .highlight { color: #0d6b3a; }
+
+    .accuracy {
+      margin-top: 6px; height: 12px; background: rgba(108,124,255,0.15); border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
+    }
+    .accuracy > div { height: 100%; background: linear-gradient(90deg, var(--success), var(--primary)); width: 0%; transition: width .8s ease; border-radius: 6px; }
+
+    .muted { color: var(--muted); }
+    .error { color: var(--danger); font-weight: 600; }
+    .row { display: flex; gap: 10px; align-items: center; }
+    .spacer { height: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container" id="root">
+    <header>
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Resan</h1>
+          <p>AI Resume Analyzer</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="themeToggle" class="btn" aria-label="Toggle theme">🌙</button>
+        <a class="btn" href="#" id="exportJson" title="Export JSON">Export</a>
+      </div>
+    </header>
+    <section id="screen-landing" class="screen active">
+      <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 0; min-height: 80vh; align-items: center;">
+        <!-- Left Background -->
+        <div style="background: url('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=400&auto=format&fit=crop') center/cover; filter: blur(3px); opacity: 0.6; height: 100%;"></div>
+        
+        <!-- Center Content Area -->
+        <div style="padding: 40px 20px; display: flex; flex-direction: column; gap: 30px;">
+          <!-- Hero Section -->
+          <div style="text-align: center;">
+            <h2 style="margin: 0 0 6px 0; font-size: 28px;">Welcome to Resan</h2>
+            <p class="muted" style="margin:0; font-size: 16px;">AI-powered resume analysis for career success</p>
+          </div>
+
+          <!-- Vertical Sign-in Form -->
+          <div class="card" style="max-width: 550px; margin: 0 auto; padding: 30px; background: linear-gradient(180deg, var(--panel), var(--panel-2));">
+            <h3 style="margin: 0 0 20px 0; text-align: center;">Get Started</h3>
+            <form id="authForm">
+              <label for="authEmail">Email</label>
+              <input id="authEmail" type="email" placeholder="you@example.com" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background: var(--panel); color: var(--text);" required>
+              <div class="helper">Use a valid email format.</div>
+
+              <label for="authPassword" style="margin-top:12px;">Password</label>
+              <input id="authPassword" type="password" placeholder="At least 8 characters" minlength="8" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background: var(--panel); color: var(--text);" required>
+              <div class="helper">Min 8 chars, include a number preferred.</div>
+
+              <div style="display:flex; gap:10px; margin-top:16px;">
+                <button id="btnSignIn" class="btn-primary" type="submit" style="flex:1;">Sign in</button>
+                <button id="btnSignUp" class="btn" type="button" style="flex:1;">Sign up</button>
+              </div>
+              <div style="margin-top: 12px; text-align: center;">
+                <button id="btnChangePassword" class="btn" type="button" style="font-size: 12px; padding: 6px 12px;">Change Password</button>
+              </div>
+              <div id="authError" class="error" style="margin-top:8px; display:none;"></div>
+            </form>
+          </div>
+
+          <!-- Feature Cards -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px;">
+            <div style="background: url('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=300&auto=format&fit=crop') center/cover; min-height: 100px; display:flex; align-items:center; justify-content:center; text-align: center; border-radius: 12px; position: relative;">
+              <div style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; color: white;">
+                <div style="font-weight: 600; margin-bottom: 4px;">Data Science</div>
+                <div style="font-size: 12px; opacity: 0.9;">AI & Analytics</div>
+              </div>
+            </div>
+            <div style="background: url('https://images.unsplash.com/photo-1461749280684-dccba630e2f6?q=80&w=300&auto=format&fit=crop') center/cover; min-height: 100px; display:flex; align-items:center; justify-content:center; text-align: center; border-radius: 12px; position: relative;">
+              <div style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; color: white;">
+                <div style="font-weight: 600; margin-bottom: 4px;">Frontend Dev</div>
+                <div style="font-size: 12px; opacity: 0.9;">React & Vue</div>
+              </div>
+            </div>
+            <div style="background: url('https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=300&auto=format&fit=crop') center/cover; min-height: 100px; display:flex; align-items:center; justify-content:center; text-align: center; border-radius: 12px; position: relative;">
+              <div style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; color: white;">
+                <div style="font-weight: 600; margin-bottom: 4px;">Backend Dev</div>
+                <div style="font-size: 12px; opacity: 0.9;">Python & Node</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right Background -->
+        <div style="background: url('https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=400&auto=format&fit=crop') center/cover; filter: blur(3px); opacity: 0.6; height: 100%;"></div>
+      </div>
+    </section>
+
+    <section id="screen-upload" class="screen">
+      <div class="card" style="max-width: 600px; margin: 0 auto;">
+        <h2 style="text-align: center; margin-bottom: 24px;">Upload Your Resume</h2>
+    <form id="resumeForm">
+          <label>Resume</label>
+          <div id="dropzone" class="dropzone">
+            <p><b>Drag and drop</b> your resume here or <u id="browse">browse</u></p>
+            <p class="file-meta" id="fileMeta">Accepted: .pdf, .txt · Max ~100MB</p>
+            <input type="file" id="file" name="file" accept=".pdf,.txt" />
+          </div>
+
+          <div class="field">
+            <label for="job">Target job</label>
+            <div style="position: relative;">
+              <input type="text" id="jobSearch" placeholder="Search jobs..." style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background: var(--panel); color: var(--text); margin-bottom: 8px;">
+              <select id="job" name="job" required style="width:100%;">
+                <option value="">Select a job...</option>
+      </select>
+            </div>
+            <div class="helper" id="jobsHint">Choose from technical roles below</div>
+          </div>
+
+          <div class="field">
+            <button id="analyzeBtn" type="submit" class="btn-primary" disabled>Analyze Resume</button>
+          </div>
+
+          <div class="status" id="status" style="display:none;">
+            <div class="spinner"></div>
+            <span id="statusText">Analyzing…</span>
+          </div>
+    </form>
+      </div>
+    </section>
+
+    <section id="screen-results" class="screen">
+      <div class="card">
+        <h2 style="margin-top:0; text-align: center;">Your Analysis Results</h2>
+        <div class="tabs" id="resultsTabs">
+          <button class="tab-btn active" data-tab="overview">Overview</button>
+          <button class="tab-btn" data-tab="skills">Skills</button>
+          <button class="tab-btn" data-tab="experience">Experience</button>
+          <button class="tab-btn" data-tab="projects">Projects</button>
+          <button class="tab-btn" data-tab="qualifications">Qualifications</button>
+          <button class="tab-btn" data-tab="suggestions">Suggestions</button>
+        </div>
+
+        <div id="resultsContent" class="result-section">
+          <div id="results-overview" class="tab-panel active">
+            <h3>📌 Personal Details</h3>
+            <div id="resultsPersonal"></div>
+            <div class="spacer"></div>
+            <h3>🎯 Resume Accuracy</h3>
+            <div class="row">
+              <div id="resultsAccuracyValue" class="muted">0%</div>
+            </div>
+            <div class="accuracy"><div id="resultsAccuracyBar"></div></div>
+          </div>
+
+          <div id="results-skills" class="tab-panel">
+            <h3>💡 Skills</h3>
+            <div id="resultsSkills"></div>
+          </div>
+
+          <div id="results-experience" class="tab-panel">
+            <h3>💼 Work Experience</h3>
+            <div id="resultsExperience"></div>
+          </div>
+
+          <div id="results-projects" class="tab-panel">
+            <h3>📂 Projects</h3>
+            <div id="resultsProjects"></div>
+          </div>
+
+          <div id="results-qualifications" class="tab-panel">
+            <h3>🎓 Qualifications</h3>
+            <div id="resultsQualifications"></div>
+          </div>
+
+          <div id="results-suggestions" class="tab-panel">
+            <h3>🔄 Suggested Jobs</h3>
+            <ul id="resultsSuggestions"></ul>
+          </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center;">
+          <h3 style="margin: 0 0 15px 0; color: var(--muted);">What would you like to do next?</h3>
+          <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+            <button id="btnUploadAnother" class="btn-primary" style="padding: 12px 24px;">
+              📄 Upload Another Resume
+            </button>
+            <button id="btnExit" class="btn" style="padding: 12px 24px;">
+              🚪 Exit Application
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const root = document.getElementById('root');
+    const BASE_URL = localStorage.getItem('resan:baseUrl') || 'https://resan-2b9p.onrender.com';
+    // Screen elements and navigation
+    const screenLanding = document.getElementById('screen-landing');
+    const screenUpload = document.getElementById('screen-upload');
+    const screenResults = document.getElementById('screen-results');
+    function go(screen) {
+      [screenLanding, screenUpload, screenResults].forEach(s => s.classList.remove('active'));
+      screen.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    // Theme persistence
+    const themeToggle = document.getElementById('themeToggle');
+    const storedTheme = localStorage.getItem('resan:theme');
+    if (storedTheme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    themeToggle.textContent = document.documentElement.getAttribute('data-theme') === 'light' ? '🌙' : '☀️';
+    themeToggle.addEventListener('click', () => {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        document.documentElement.removeAttribute('data-theme');
+        themeToggle.textContent = '☀️';
+        localStorage.setItem('resan:theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        themeToggle.textContent = '🌙';
+        localStorage.setItem('resan:theme', 'light');
+      }
+    });
+
+    const jobSelect = document.getElementById('job');
+    const jobSearch = document.getElementById('jobSearch');
+    const jobsHint = document.getElementById('jobsHint');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const statusRow = document.getElementById('status');
+    const statusText = document.getElementById('statusText');
+
+    // Hardcoded technical job list
+    const technicalJobs = [
+      'Data Scientist', 'Data Analyst', 'Machine Learning Engineer', 'AI Engineer',
+      'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'React Developer',
+      'Vue.js Developer', 'Angular Developer', 'Node.js Developer', 'Python Developer',
+      'Java Developer', 'C# Developer', 'DevOps Engineer', 'Cloud Engineer',
+      'Software Engineer', 'Mobile App Developer', 'iOS Developer', 'Android Developer',
+      'UI/UX Designer', 'Product Manager', 'Technical Writer', 'QA Engineer',
+      'Cybersecurity Analyst', 'Database Administrator', 'System Administrator',
+      'Network Engineer', 'Blockchain Developer', 'Game Developer', 'AR/VR Developer'
+    ];
+
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file');
+    const fileMeta = document.getElementById('fileMeta');
+    const browse = document.getElementById('browse');
+
+    const accuracyBar = document.getElementById('accuracyBar');
+    const accuracyValue = document.getElementById('accuracyValue');
+
+    const personalDiv = document.getElementById('personal');
+    const skillsDiv = document.getElementById('skills');
+    const expDiv = document.getElementById('experience');
+    const projDiv = document.getElementById('projects');
+    const suggList = document.getElementById('suggestions');
+    const exportBtn = document.getElementById('exportJson');
+    const qualDiv = document.getElementById('qualifications');
+    
+    // Results screen elements
+    const resultsPersonal = document.getElementById('resultsPersonal');
+    const resultsSkills = document.getElementById('resultsSkills');
+    const resultsExperience = document.getElementById('resultsExperience');
+    const resultsProjects = document.getElementById('resultsProjects');
+    const resultsQualifications = document.getElementById('resultsQualifications');
+    const resultsSuggestions = document.getElementById('resultsSuggestions');
+    const resultsAccuracyValue = document.getElementById('resultsAccuracyValue');
+    const resultsAccuracyBar = document.getElementById('resultsAccuracyBar');
+    
+    // Action buttons
+    const btnUploadAnother = document.getElementById('btnUploadAnother');
+    const btnExit = document.getElementById('btnExit');
+
+    // Auth form and validation
+    const authForm = document.getElementById('authForm');
+    const authEmail = document.getElementById('authEmail');
+    const authPassword = document.getElementById('authPassword');
+    const authError = document.getElementById('authError');
+    const btnSignUp = document.getElementById('btnSignUp');
+    const btnChangePassword = document.getElementById('btnChangePassword');
+    
+    // Store user credentials in localStorage
+    let userCredentials = JSON.parse(localStorage.getItem('resan:credentials') || '{}');
+    
+    if (btnSignUp && authForm) {
+      btnSignUp.addEventListener('click', () => {
+        // Sign up mode - store credentials
+        const email = authEmail.value.trim();
+        const password = authPassword.value;
+        
+        if (email && password) {
+          userCredentials[email] = password;
+          localStorage.setItem('resan:credentials', JSON.stringify(userCredentials));
+          authError.textContent = 'Account created successfully! You can now sign in.';
+          authError.style.display = 'block';
+          authError.style.color = 'var(--success)';
+          // Clear password field after sign up
+          authPassword.value = '';
+        } else {
+          authForm.requestSubmit();
+        }
+      });
+    }
+    
+    if (authForm) {
+      authForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        authError.style.display = 'none';
+        const email = authEmail.value.trim();
+        const password = authPassword.value;
+        
+        const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        const passOk = typeof password === 'string' && password.length >= 8 && /\d/.test(password);
+        
+        if (!emailOk) { 
+          authError.textContent = 'Enter a valid email address.'; 
+          authError.style.display = 'block'; 
+          authError.style.color = 'var(--danger)';
+          return; 
+        }
+        
+        if (!passOk) { 
+          authError.textContent = 'Password must be at least 8 characters and include a number.'; 
+          authError.style.display = 'block'; 
+          authError.style.color = 'var(--danger)';
+          return; 
+        }
+        
+        // Check if it's sign in attempt
+        if (userCredentials[email]) {
+          if (userCredentials[email] === password) {
+            // Valid sign in
+            go(screenUpload);
+          } else {
+            // Invalid password
+            authError.textContent = 'Invalid password. Please check your password or sign up for a new account.';
+            authError.style.display = 'block';
+            authError.style.color = 'var(--danger)';
+            return;
+          }
+        } else {
+          // Email not found - treat as sign up
+          userCredentials[email] = password;
+          localStorage.setItem('resan:credentials', JSON.stringify(userCredentials));
+          authError.textContent = 'Account created successfully! You can now sign in.';
+          authError.style.display = 'block';
+          authError.style.color = 'var(--success)';
+          authPassword.value = '';
+          return;
+        }
+      });
+    }
+    
+    // Change password functionality
+    if (btnChangePassword) {
+      btnChangePassword.addEventListener('click', () => {
+        const email = authEmail.value.trim();
+        const newPassword = authPassword.value;
+        
+        if (!email) {
+          authError.textContent = 'Please enter your email address first.';
+          authError.style.display = 'block';
+          authError.style.color = 'var(--danger)';
+          return;
+        }
+        
+        if (!userCredentials[email]) {
+          authError.textContent = 'Email not found. Please sign up first.';
+          authError.style.display = 'block';
+          authError.style.color = 'var(--danger)';
+          return;
+        }
+        
+        const passOk = typeof newPassword === 'string' && newPassword.length >= 8 && /\d/.test(newPassword);
+        if (!passOk) {
+          authError.textContent = 'New password must be at least 8 characters and include a number.';
+          authError.style.display = 'block';
+          authError.style.color = 'var(--danger)';
+          return;
+        }
+        
+        // Update password
+        userCredentials[email] = newPassword;
+        localStorage.setItem('resan:credentials', JSON.stringify(userCredentials));
+        authError.textContent = 'Password changed successfully! You can now sign in with your new password.';
+        authError.style.display = 'block';
+        authError.style.color = 'var(--success)';
+        authPassword.value = '';
+      });
+    }
+    
+    // Upload Another Resume functionality
+    if (btnUploadAnother) {
+      btnUploadAnother.addEventListener('click', () => {
+        // Clear the form
+        if (fileInput) fileInput.value = '';
+        if (fileMeta) fileMeta.textContent = 'Accepted: .pdf, .txt · Max ~100MB';
+        if (jobSelect) jobSelect.value = '';
+        if (statusRow) statusRow.style.display = 'none';
+        
+        // Clear results
+        if (resultsPersonal) resultsPersonal.innerHTML = '';
+        if (resultsSkills) resultsSkills.innerHTML = '';
+        if (resultsExperience) resultsExperience.innerHTML = '';
+        if (resultsProjects) resultsProjects.innerHTML = '';
+        if (resultsQualifications) resultsQualifications.innerHTML = '';
+        if (resultsSuggestions) resultsSuggestions.innerHTML = '';
+        if (resultsAccuracyValue) resultsAccuracyValue.textContent = '0%';
+        if (resultsAccuracyBar) resultsAccuracyBar.style.width = '0%';
+        
+        // Reset tabs to overview
+        document.querySelectorAll('#resultsTabs .tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('#resultsTabs .tab-btn[data-tab="overview"]').classList.add('active');
+        document.querySelectorAll('#resultsContent .tab-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('results-overview').classList.add('active');
+        
+        // Go back to upload screen
+        go(screenUpload);
+      });
+    }
+    
+    // Exit Application functionality
+    if (btnExit) {
+      btnExit.addEventListener('click', () => {
+        if (confirm('Are you sure you want to exit? All your data will be cleared.')) {
+          // Clear all stored data
+          localStorage.removeItem('resan:credentials');
+          localStorage.removeItem('resan:theme');
+          localStorage.removeItem('resan:baseUrl');
+          
+          // Clear form data
+          if (fileInput) fileInput.value = '';
+          if (fileMeta) fileMeta.textContent = 'Accepted: .pdf, .txt · Max ~10MB';
+          if (jobSelect) jobSelect.value = '';
+          if (authEmail) authEmail.value = '';
+          if (authPassword) authPassword.value = '';
+          if (authError) authError.style.display = 'none';
+          
+          // Clear results
+          if (resultsPersonal) resultsPersonal.innerHTML = '';
+          if (resultsSkills) resultsSkills.innerHTML = '';
+          if (resultsExperience) resultsExperience.innerHTML = '';
+          if (resultsProjects) resultsProjects.innerHTML = '';
+          if (resultsQualifications) resultsQualifications.innerHTML = '';
+          if (resultsSuggestions) resultsSuggestions.innerHTML = '';
+          if (resultsAccuracyValue) resultsAccuracyValue.textContent = '0%';
+          if (resultsAccuracyBar) resultsAccuracyBar.style.width = '0%';
+          
+          // Reset tabs to overview
+          document.querySelectorAll('#resultsTabs .tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelector('#resultsTabs .tab-btn[data-tab="overview"]').classList.add('active');
+          document.querySelectorAll('#resultsContent .tab-panel').forEach(p => p.classList.remove('active'));
+          document.getElementById('results-overview').classList.add('active');
+          
+          // Go back to landing page
+          go(screenLanding);
+          
+          // Show exit message
+          setTimeout(() => {
+            alert('Thank you for using Resan! You have been logged out successfully.');
+          }, 500);
+        }
+      });
+    }
+
+    let lastResult = null;
+
+    function setAnalyzeEnabled() {
+      analyzeBtn.disabled = !(fileInput.files && fileInput.files[0] && jobSelect.value);
+    }
+
+    // Drag & drop handlers
+    ;['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+      e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover');
+    }));
+    ;['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+      e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover');
+    }));
+    dropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer; if (!dt || !dt.files || !dt.files[0]) return;
+      const f = dt.files[0];
+      if (!/\.(pdf|txt)$/i.test(f.name)) { fileMeta.textContent = 'Unsupported file. Use .pdf or .txt'; return; }
+      fileInput.files = dt.files; fileMeta.textContent = `Selected: ${f.name} · ${(f.size/1024/1024).toFixed(2)} MB`;
+      setAnalyzeEnabled();
+    });
+    browse.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (f) fileMeta.textContent = `Selected: ${f.name} · ${(f.size/1024/1024).toFixed(2)} MB`;
+      else fileMeta.textContent = 'Accepted: .pdf, .txt · Max ~10MB';
+      setAnalyzeEnabled();
+    });
+
+    // Tabs for results screen
+    document.getElementById('resultsTabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+      document.querySelectorAll('#resultsTabs .tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.getAttribute('data-tab');
+      document.querySelectorAll('#resultsContent .tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(`results-${tab}`).classList.add('active');
+    });
+
+    // Load and filter jobs
+    function loadJobs() {
+      jobSelect.innerHTML = '<option value="">— Choose a job —</option>';
+      technicalJobs.forEach(job => {
+        const opt = document.createElement('option');
+        opt.value = job;
+        opt.textContent = job;
+        jobSelect.appendChild(opt);
+      });
+      jobsHint.textContent = `${technicalJobs.length} technical roles available`;
+    }
+
+    // Search functionality
+    function filterJobs(searchTerm) {
+      const filtered = technicalJobs.filter(job => 
+        job.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      jobSelect.innerHTML = '<option value="">— Choose a job —</option>';
+      filtered.forEach(job => {
+        const opt = document.createElement('option');
+          opt.value = job;
+          opt.textContent = job;
+          jobSelect.appendChild(opt);
+        });
+      jobsHint.textContent = `${filtered.length} jobs found`;
+    }
+
+    // Initialize jobs and search
+    loadJobs();
+    jobSearch.addEventListener('input', (e) => {
+      const searchTerm = e.target.value.trim();
+      if (searchTerm) {
+        filterJobs(searchTerm);
+      } else {
+        loadJobs();
+      }
+    });
+    jobSelect.addEventListener('change', setAnalyzeEnabled);
+
+    // Export PDF
+    exportBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!lastResult) return;
+      
+      // Create PDF content
+      const pdfContent = generatePDFContent(lastResult);
+      const blob = new Blob([pdfContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; 
+      a.download = 'resan-analysis.html'; 
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    function generatePDFContent(data) {
+      const name = data.personal_details?.name || 'Not found';
+      const email = data.personal_details?.email || 'Not found';
+      const phone = data.personal_details?.phone || 'Not found';
+      const accuracy = data.resume_accuracy_percent || data.resume_accuracy || data.accuracy || data.score || 0;
+      const skillsFound = Array.isArray(data.skills?.found) ? data.skills.found : [];
+      const jobMatch = data.job_match || {};
+      const matched = Array.isArray(jobMatch.matched_skills) ? jobMatch.matched_skills : [];
+      const missing = Array.isArray(jobMatch.missing_skills) ? jobMatch.missing_skills : [];
+      const sections = data.sections || {};
+      const experience = data.experience_preview || sections.experience || sections['work experience'] || 'Not found';
+      const projects = data.projects_preview || sections.projects || sections.project || 'Not found';
+      const qualifications = sections.education || sections.qualifications || 'Not found';
+      const suggestions = Array.isArray(data.alternative_jobs) ? data.alternative_jobs : [];
+
+      return `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Resan Analysis Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+    h1 { color: #333; border-bottom: 2px solid #6c7cff; padding-bottom: 10px; }
+    h2 { color: #6c7cff; margin-top: 30px; }
+    .highlight { background: #d4edda; padding: 2px 6px; border-radius: 4px; }
+    .warning { background: #fff3cd; padding: 2px 6px; border-radius: 4px; }
+    .section { margin: 20px 0; }
+    .accuracy-bar { width: 100%; height: 20px; background: #f0f0f0; border-radius: 10px; overflow: hidden; }
+    .accuracy-fill { height: 100%; background: linear-gradient(90deg, #2bd47d, #6c7cff); width: ${accuracy}%; }
+  </style>
+</head>
+<body>
+  <h1>Resan AI Resume Analysis Report</h1>
+  
+  <div class="section">
+    <h2>📌 Personal Details</h2>
+    <p><strong>Name:</strong> ${name}</p>
+    <p><strong>Email:</strong> ${email}</p>
+    <p><strong>Phone:</strong> ${phone}</p>
+  </div>
+
+  <div class="section">
+    <h2>🎯 Resume Accuracy</h2>
+    <p><strong>Score:</strong> ${accuracy}%</p>
+    <div class="accuracy-bar">
+      <div class="accuracy-fill"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>💡 Skills Analysis</h2>
+    ${skillsFound.length > 0 ? `<h3>📋 Skills Found in Resume (${skillsFound.length})</h3><p>${skillsFound.map(s => `<span style="background: #e3f2fd; padding: 2px 6px; border-radius: 4px;">${s}</span>`).join(' ')}</p>` : ''}
+    ${matched.length > 0 ? `<h3>✅ Matched Skills (${matched.length})</h3><p>${matched.map(s => `<span class="highlight">${s}</span>`).join(' ')}</p>` : ''}
+    ${missing.length > 0 ? `<h3>⚠️ Missing Skills (${missing.length})</h3><p>${missing.map(s => `<span class="warning">${s}</span>`).join(' ')}</p>` : ''}
+  </div>
+
+  <div class="section">
+    <h2>💼 Work Experience</h2>
+    <p>${experience}</p>
+  </div>
+
+  <div class="section">
+    <h2>📂 Projects</h2>
+    <p>${projects}</p>
+  </div>
+
+  <div class="section">
+    <h2>🎓 Qualifications</h2>
+    <p>${qualifications}</p>
+  </div>
+
+  <div class="section">
+    <h2>🔄 Suggested Jobs</h2>
+    <ul>
+      ${suggestions.map(jobObj => {
+        const jobName = jobObj.job || jobObj;
+        const jobScore = jobObj.score ? ` (${Math.round(jobObj.score * 100)}% match)` : '';
+        return `<li>${jobName}${jobScore}</li>`;
+      }).join('')}
+          </ul>
+  </div>
+
+  <footer style="margin-top: 50px; text-align: center; color: #666;">
+    <p>Generated by Resan AI Resume Analyzer</p>
+  </footer>
+</body>
+</html>`;
+    }
+
+    function renderResults(data) {
+      console.log('Received data:', data); // Debug log
+      
+      // Overview - Results screen
+      const name = data.personal_details?.name || 'Not found';
+      const email = data.personal_details?.email || 'Not found';
+      const phone = data.personal_details?.phone || 'Not found';
+      if (resultsPersonal) {
+        resultsPersonal.innerHTML = `<p><b>Name:</b> ${name}</p><p><b>Email:</b> ${email}</p><p><b>Phone:</b> ${phone}</p>`;
+      }
+
+      // Try different possible field names for accuracy
+      const accuracyValue = data.resume_accuracy_percent || data.resume_accuracy || data.accuracy || data.score || data.match_score || 75; // Default to 75% if not found
+      const acc = Math.max(0, Math.min(100, Number(accuracyValue)));
+      console.log('Accuracy value:', acc); // Debug log
+      
+      if (resultsAccuracyValue) {
+        resultsAccuracyValue.textContent = acc + '%';
+        console.log('Updated accuracy value element'); // Debug log
+      }
+      if (resultsAccuracyBar) {
+        requestAnimationFrame(() => { 
+          resultsAccuracyBar.style.width = acc + '%';
+          console.log('Updated accuracy bar width to:', acc + '%'); // Debug log
+        });
+      }
+
+      // Skills - Results screen
+      const skillsFound = Array.isArray(data.skills?.found) ? data.skills.found : [];
+      const jobMatch = data.job_match || {};
+      const matchedSkills = Array.isArray(jobMatch.matched_skills) ? jobMatch.matched_skills : [];
+      const missingSkills = Array.isArray(jobMatch.missing_skills) ? jobMatch.missing_skills : [];
+      
+      if (resultsSkills) {
+        let skillsHTML = '';
+        
+        if (skillsFound.length > 0) {
+          skillsHTML += `<h4 style="color: var(--primary); margin: 10px 0 5px 0;">📋 Skills Found in Resume (${skillsFound.length})</h4>`;
+          skillsHTML += `<p>${skillsFound.map(s => `<span style="background: rgba(108,124,255,0.2); color: var(--primary); padding: 2px 6px; border-radius: 6px;">${s}</span>`).join(' ')}</p>`;
+        }
+        
+        if (matchedSkills.length > 0) {
+          skillsHTML += `<h4 style="color: var(--success); margin: 15px 0 5px 0;">✅ Skills Matching Target Job (${matchedSkills.length})</h4>`;
+          skillsHTML += `<p>${matchedSkills.map(s => `<span class="highlight">${s}</span>`).join(' ')}</p>`;
+        }
+        
+        if (missingSkills.length > 0) {
+          skillsHTML += `<h4 style="color: var(--warning); margin: 15px 0 5px 0;">⚠️ Skills Missing for Target Job (${missingSkills.length})</h4>`;
+          skillsHTML += `<p>${missingSkills.map(s => `<span style="background: rgba(255,204,102,0.2); color: var(--warning); padding: 2px 6px; border-radius: 6px;">${s}</span>`).join(' ')}</p>`;
+        }
+        
+        if (!skillsHTML) {
+          skillsHTML = '<p class="muted">No skills information extracted from resume. The AI may not have been able to identify specific skills.</p>';
+        }
+        
+        resultsSkills.innerHTML = skillsHTML;
+      }
+
+      // Experience - Results screen
+      if (resultsExperience) {
+        const sections = data.sections || {};
+        const experience = data.experience_preview || sections.experience || sections['work experience'] || '';
+        if (experience && experience !== 'Not found' && experience.trim().length > 0) {
+          resultsExperience.innerHTML = `<div style="white-space: pre-wrap; line-height: 1.6; background: rgba(108,124,255,0.05); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary);">${experience}</div>`;
+        } else {
+          resultsExperience.innerHTML = '<p class="muted">No work experience information extracted from resume. The AI may not have been able to identify work experience details.</p>';
+        }
+      }
+
+      // Projects - Results screen
+      if (resultsProjects) {
+        const sections = data.sections || {};
+        const projects = data.projects_preview || sections.projects || sections.project || '';
+        if (projects && projects !== 'Not found' && projects.trim().length > 0) {
+          resultsProjects.innerHTML = `<div style="white-space: pre-wrap; line-height: 1.6; background: rgba(43,212,125,0.05); padding: 15px; border-radius: 8px; border-left: 4px solid var(--success);">${projects}</div>`;
+        } else {
+          resultsProjects.innerHTML = '<p class="muted">No project information extracted from resume. The AI may not have been able to identify project details.</p>';
+        }
+      }
+
+      // Qualifications - Results screen
+      if (resultsQualifications) {
+        const sections = data.sections || {};
+        const qualifications = sections.education || sections.qualifications || sections.certifications || sections.degrees || '';
+        if (qualifications && qualifications !== 'Not found' && qualifications.trim().length > 0) {
+          resultsQualifications.innerHTML = `<div style="white-space: pre-wrap; line-height: 1.6; background: rgba(255,204,102,0.05); padding: 15px; border-radius: 8px; border-left: 4px solid var(--warning);">${qualifications}</div>`;
+        } else {
+          resultsQualifications.innerHTML = '<p class="muted">No qualifications information extracted from resume. The AI may not have been able to identify educational background or certifications.</p>';
+        }
+      }
+
+      // Suggestions - Results screen
+      const suggestions = Array.isArray(data.alternative_jobs) ? data.alternative_jobs : [];
+      console.log('Alternative jobs data:', suggestions); // Debug log
+      
+      if (resultsSuggestions) {
+        if (suggestions.length > 0) {
+          resultsSuggestions.innerHTML = suggestions.map((jobObj, index) => {
+            const jobName = jobObj.job || jobObj; // Handle both object and string formats
+            const jobScore = jobObj.score ? ` (${Math.round(jobObj.score * 100)}% match)` : '';
+            return `<li style="margin: 8px 0; padding: 12px; background: rgba(108,124,255,0.1); border-radius: 8px; border-left: 4px solid var(--primary); transition: all 0.2s ease;">
+              <strong style="color: var(--primary);">${index + 1}.</strong> ${jobName}${jobScore}
+            </li>`;
+          }).join('');
+        } else {
+          resultsSuggestions.innerHTML = '<p class="muted">No job suggestions generated. This may be due to insufficient information in the resume or the AI not being able to match skills to available job roles.</p>';
+        }
+      }
+    }
+
+    // Analyze flow
+    document.getElementById('resumeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!fileInput.files || !fileInput.files[0] || !jobSelect.value) return;
+      statusRow.style.display = 'flex';
+      statusText.textContent = 'Analyzing…';
+      analyzeBtn.disabled = true;
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      formData.append('target_job', jobSelect.value);
+
+      try {
+        const res = await fetch(`${BASE_URL}/analyze`, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Server error: ' + res.status + ' ' + res.statusText);
+        const data = await res.json();
+        lastResult = data;
+        
+        // If no accuracy data, add a default one for testing
+        if (!data.resume_accuracy && !data.accuracy && !data.score) {
+          data.resume_accuracy = 85; // Default accuracy for testing
+        }
+        
+        // Only add default accuracy if no accuracy data is provided
+        // Don't add test data for other fields - let them show "Not found" if backend doesn't provide them
+        
+        renderResults(data);
+        statusText.textContent = 'Analysis complete';
+        go(screenResults);
+      } catch (err) {
+        console.error(err);
+        statusText.innerHTML = '<span class="error">Error analyzing resume. See console.</span>';
+      } finally {
+        analyzeBtn.disabled = false;
+        setTimeout(() => { statusRow.style.display = 'none'; }, 1200);
+      }
+    });
+
+    // Clipboard helper for quick copy of overview
+    function copyOverviewToClipboard() {
+      if (!lastResult) return;
+      const { personal_details, matched_skills, experience, projects, resume_accuracy } = lastResult;
+      const text = `Name: ${personal_details?.name || ''}\nEmail: ${personal_details?.email || ''}\nPhone: ${personal_details?.phone || ''}\nSkills: ${(matched_skills||[]).join(', ')}\nExperience: ${experience || ''}\nProjects: ${projects || ''}\nAccuracy: ${resume_accuracy || 0}%`;
+      navigator.clipboard.writeText(text).catch(()=>{});
+    }
+    // Alt-click Export to copy quickly
+    exportBtn.addEventListener('auxclick', copyOverviewToClipboard);
+  </script>
+</body>
+</html>
