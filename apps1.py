@@ -340,4 +340,4 @@ def home():
 
 if __name__ == '__main__': 
     # default to 0.0.0.0 for easy testing with a frontend on another device on your network 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run()
